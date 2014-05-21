@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG)
 class EncodingError(Exception):
     pass
 
-rgb_tup = ((0,3), (3, 6), (6, 8))
+rgb_tup = ((0,3), (3, 5), (5, 8))
 normalize = lambda number, tup: round(number * 255 / (2 ** (tup[1] - tup[0]) - 1))
 def rgb_from_bytes(bytes, encoding):
     """Return rgb values read from bytes."""

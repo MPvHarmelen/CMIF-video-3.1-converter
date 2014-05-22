@@ -1,7 +1,6 @@
-from sys import argv
-from ast import literal_eval
+import os, sys, math, ast
 from itertools import chain
-from math import ceil
+
 import png
 
 # Initialize logging / debuging
@@ -9,10 +8,16 @@ import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
+# Constants
+FILE_MODE = 'rb'
+ENCODING_NAME = 'CMIF video 3.1'
+EOF_MARKER = '/////CMIF/////'
+RED_BITS, GREEN_BITS = 3, 2
+
+
 class EncodingError(Exception):
     pass
 
-RED_BITS, GREEN_BITS = 3, 2
 rgb_tup = ((0, RED_BITS), (RED_BITS, RED_BITS + GREEN_BITS), (RED_BITS + GREEN_BITS, 8))
 normalize = lambda number, tup: round(number * 255 / (2 ** (tup[1] - tup[0]) - 1))
 def rgb_from_bytes(bytes, encoding):
@@ -37,64 +42,81 @@ def get_bits(bits, start, end, length=8):
 
 def chop(li, length):
     """Chop a list into pieces."""
-    n_rows = ceil(len(li) / length)
-    out = []
-    for x in range(n_rows):
-        out.append(li[x * length : (x + 1) * length])
-    return out
+    n_rows = math.ceil(len(li) / length)
+    return [li[x * length : (x + 1) * length] for x in range(n_rows)]
     # if len(li) > length:
     #     newli = chop(li[:-length], length)
     #     newli.append(li[-length:])
     #     return newli
     # return [li]
 
-if __name__ == '__main__':
-    OUTPUT_FOLDER = '../video/Champ/'
-    FILENAME = OUTPUT_FOLDER + 'obscure.v'
-    FILE_MODE = 'rb'
-    ENCODING_NAME = 'CMIF video 3.1'
-    EOF_MARKER = '/////CMIF/////'
 
-    filename = argv[1] if len(argv) > 1 else FILENAME
-
-    with open(filename, FILE_MODE) as f:
+def convert(filename, output_folder, eof_marker=EOF_MARKER,
+         encoding_name=ENCODING_NAME, file_mode=FILE_MODE):
+    with open(filename, file_mode) as f:
         # First line should be our encoding name
-        if f.readline().decode() != ENCODING_NAME + '\n':
-            raise EncodingError("This file isn't using {}".format(ENCODING_NAME))
+        if f.readline().decode() != encoding_name + '\n':
+            raise EncodingError("This file isn't using {}".format(encoding_name))
 
-        encoding = literal_eval(f.readline().decode())
+        # Second line should be the encoding
+        encoding = ast.literal_eval(f.readline().decode())
         logger.info("Encoding: {}".format(encoding))
 
-        width, hight, unknown2 = literal_eval(f.readline().decode())
-        logger.debug("Width, hight: {}, {}".format(width, hight))
+        # Third line should be the width and hight and ehhh.. another something
+        width, hight, unknown = ast.literal_eval(f.readline().decode())
+        logger.debug("Width, hight: {}, {}".format(width, hight, unknown))
 
+        eof_marker = (eof_marker + '\n').encode()
 
-        eof_marker = (EOF_MARKER + '\n').encode()
+        # Loop over file
         for line in f:
+            # Check for eof
             if line == eof_marker:
                 logger.debug('EOF reached.')
                 break
 
+            # Get line information
             line = line.decode().strip()
             if line:
-                timestamp, line_length, unknown3 = literal_eval(line)
+                timestamp, line_length, unknown2 = ast.literal_eval(line)
             else:
                 continue
 
-            if width * hight != line_length:
-                raise EncodingError("Line length isn't width * hight.")
-            else:
-                logger.debug("Line length: {}".format(line_length))
+            # if width * hight != line_length:
+            #     raise EncodingError("Line length isn't width * hight.")
+            # else:
+            #     logger.debug("Line length: {}".format(line_length))
 
+            # Read image bytes
             bytes = f.read(line_length)
 
+            # Get rgb data
             get_rgb = lambda a: rgb_from_bytes(a, encoding[0])
             rgbs = list(map(get_rgb, bytes))
+
+            # Cleanup
             rows = chop(rgbs, width)
             for i, row in enumerate(rows):
                 rows[i] = list(chain(*row))
             rows.reverse()
+
+            # Save
             img = png.from_array(rows, 'RGB')
             img.save(OUTPUT_FOLDER + '{}.png'.format(timestamp))
-            logger.debug("{}, {}".format(bytes[:10], timestamp))
+            logger.debug(timestamp)
+
+if __name__ == '__main__':
+    OUTPUT_FOLDER = '../video/Champ/'
+    FILENAME = OUTPUT_FOLDER + 'obscure.v'
+    sys.argv_len = len(sys.argv)
+    if sys.argv_len > 1:
+        filename = sys.argv[1]
+        if sys.argv_len > 2:
+            output_folder = sys.argv[2]
+        else:
+            output_folder = os.path.split(filename)[0]
+    else:
+        filename, output_folder = FILENAME, OUTPUT_FOLDER
+
+    convert(filename, output_folder)
 

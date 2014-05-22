@@ -22,10 +22,18 @@ def rgb_from_bytes(bytes, encoding):
                             "".format(encoding))
 
     n_bits = int(encoding[3:])
-    bits = '{0:b}'.format(bytes)[:n_bits].rjust(n_bits, '0')
-    get_b = lambda a: int(bits[a[0]:a[1]], 2)
-    rgb = map(get_b, rgb_tup)
-    return map(normalize, rgb, rgb_tup)
+    # bits = '{0:b}'.format(bytes)[:n_bits].rjust(n_bits, '0')
+    # get_b = lambda a: int(bits[a[0]:a[1]], 2)
+    get_b = lambda a: get_bits(bytes, a[0], a[1], n_bits)
+    rbg = map(get_b, rgb_tup)
+
+    # Some idiot flipped the green and blue to be blue and green, so they
+    # somehow used rbg8 in stead of rgb8.
+    red, blue, green = map(normalize, rbg, rgb_tup)
+    return (red, green, blue)
+
+def get_bits(bits, start, end, length=8):
+    return (bits >> length - end) % 2 ** (end - start)
 
 def chop(li, length):
     """Chop a list into pieces."""
@@ -41,7 +49,8 @@ def chop(li, length):
     # return [li]
 
 if __name__ == '__main__':
-    FILENAME = '../video/obscure.v'
+    OUTPUT_FOLDER = '../video/Champ/'
+    FILENAME = OUTPUT_FOLDER + 'obscure.v'
     FILE_MODE = 'rb'
     ENCODING_NAME = 'CMIF video 3.1'
     EOF_MARKER = '/////CMIF/////'
@@ -86,6 +95,6 @@ if __name__ == '__main__':
                 rows[i] = list(chain(*row))
             rows.reverse()
             img = png.from_array(rows, 'RGB')
-            img.save('../video/{}.png'.format(timestamp))
+            img.save(OUTPUT_FOLDER + '{}.png'.format(timestamp))
             logger.debug("{}, {}".format(bytes[:10], timestamp))
 

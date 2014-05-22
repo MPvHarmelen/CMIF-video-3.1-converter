@@ -102,7 +102,7 @@ def convert(filename, output_folder, eof_marker=EOF_MARKER,
 
             # Save
             img = png.from_array(rows, 'RGB')
-            img.save(OUTPUT_FOLDER + '{}.png'.format(timestamp))
+            img.save(output_folder + '{}.png'.format(timestamp))
             logger.debug(timestamp)
 
 if __name__ == '__main__':

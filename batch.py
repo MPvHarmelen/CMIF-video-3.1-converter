@@ -69,3 +69,4 @@ if __name__ == '__main__':
         run_ffmpeg(output_folder, filename)
 
         logger.info('Finished {}'.format(filename))
+    logger.info('Done!')

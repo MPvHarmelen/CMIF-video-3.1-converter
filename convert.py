@@ -6,14 +6,15 @@ import png
 # Initialize logging / debuging
 import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 # Constants
 FILE_MODE = 'rb'
 ENCODING_NAME = 'CMIF video 3.1'
 EOF_MARKER = '/////CMIF/////'
 RED_BITS, GREEN_BITS = 3, 2
-
+STOP_LOOP = False
+MAX_FRAMES = 4
 
 class EncodingError(Exception):
     pass
@@ -51,8 +52,10 @@ def chop(li, length):
     # return [li]
 
 
-def convert(filename, output_folder, eof_marker=EOF_MARKER,
-         encoding_name=ENCODING_NAME, file_mode=FILE_MODE):
+def convert(filename, output_folder, eof_marker=EOF_MARKER, file_mode=FILE_MODE,
+            encoding_name=ENCODING_NAME, stop_loop=STOP_LOOP,
+            max_frames=MAX_FRAMES):
+    """Convert filename to separate png frames."""
     with open(filename, file_mode) as f:
         # First line should be our encoding name
         if f.readline().decode() != encoding_name + '\n':
@@ -60,7 +63,7 @@ def convert(filename, output_folder, eof_marker=EOF_MARKER,
 
         # Second line should be the encoding
         encoding = ast.literal_eval(f.readline().decode())
-        logger.info("Encoding: {}".format(encoding))
+        logger.debug("Encoding: {}".format(encoding))
 
         # Third line should be the width and hight and ehhh.. another something
         width, hight, unknown = ast.literal_eval(f.readline().decode())
@@ -69,11 +72,20 @@ def convert(filename, output_folder, eof_marker=EOF_MARKER,
         eof_marker = (eof_marker + '\n').encode()
 
         # Loop over file
+        if stop_loop:
+            iterations = 0
         for line in f:
             # Check for eof
             if line == eof_marker:
                 logger.debug('EOF reached.')
                 break
+
+            if stop_loop:
+                if iterations == max_frames:
+                    break
+                else:
+                    iterations += 1
+
 
             # Get line information
             line = line.decode().strip()
@@ -103,7 +115,7 @@ def convert(filename, output_folder, eof_marker=EOF_MARKER,
             # Save
             img = png.from_array(rows, 'RGB')
             img.save(os.path.join(output_folder,'{}.png'.format(timestamp)))
-            logger.debug(timestamp)
+            logger.info('Finished frame with timestamp: {}'.format(timestamp))
 
 if __name__ == '__main__':
     OUTPUT_FOLDER = '../video/Champ/'
